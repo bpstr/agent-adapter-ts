@@ -1,0 +1,29 @@
+{
+  "name": "@bpstr/agent-adapter",
+  "version": "0.1.0",
+  "description": "Typed, dependency-free process adapters for coding agent CLIs",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./roadmap-runner": { "types": "./dist/roadmap-runner.d.ts", "import": "./dist/roadmap-runner.js" }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "check:installed": "npm run build && node scripts/check-installed.mjs",
+    "check:roadmap": "npm run build && node scripts/check-roadmap.mjs",
+    "check:package": "npm run build && node scripts/check-package.mjs",
+    "prepack": "npm run build"
+  },
+  "repository": { "type": "git", "url": "git+https://github.com/bpstr/agent-adapter-ts.git" },
+  "homepage": "https://github.com/bpstr/agent-adapter-ts#readme",
+  "bugs": { "url": "https://github.com/bpstr/agent-adapter-ts/issues" },
+  "license": "MIT",
+  "keywords": ["agent", "cli", "codex", "claude-code", "gemini", "grok", "kimi", "muse", "typescript"],
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "devDependencies": { "@types/node": "22.19.15", "typescript": "5.9.3" }
+}
