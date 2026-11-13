@@ -33,6 +33,10 @@ function terminate(child: ChildProcess, signal: NodeJS.Signals) {
 /** No retries, shell, global output writes, or provider SDKs. */
 export async function runAgent(options: RunOptions): Promise<RunResult> {
   const invocation = buildRunnerInvocation(options);
+  if (options.inheritEnvironment !== undefined && typeof options.inheritEnvironment !== 'boolean') {
+    throw new Error('inheritEnvironment must be a boolean');
+  }
+  const env = options.inheritEnvironment === false ? (options.env ?? {}) : { ...process.env, ...options.env };
   const { timeoutMs, terminationGraceMs = 1000, maxOutputBytes = 1_048_576, maxEventBytes = 1_048_576 } = options;
   for (const [name, value] of Object.entries({ timeoutMs, terminationGraceMs, maxOutputBytes, maxEventBytes })) {
     if (value !== undefined && (!Number.isSafeInteger(value) || value < (name === 'terminationGraceMs' ? 0 : 1))) throw new Error(`${name} must be a ${name === 'terminationGraceMs' ? 'nonnegative' : 'positive'} safe integer`);
@@ -52,7 +56,7 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
     let timeout: NodeJS.Timeout | undefined;
     let escalation: NodeJS.Timeout | undefined;
     const child = spawn(invocation.command, invocation.args, {
-      cwd: invocation.cwd, env: { ...process.env, ...options.env },
+      cwd: invocation.cwd, env,
       detached: process.platform !== 'win32', shell: false, windowsHide: true,
       stdio: [invocation.stdin === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
     });

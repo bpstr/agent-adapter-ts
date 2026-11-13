@@ -25,6 +25,22 @@ for (const client of CLIENT_NAMES) {
   });
 }
 
+test('explicit child environment excludes ambient values', async () => {
+  process.env.ADAPTER_AMBIENT_FIXTURE = 'dummy';
+  try {
+    const result = await runAgent(fixture('codex', 'inspect', {
+      inheritEnvironment: false,
+      env: { PATH: process.env.PATH, FIXTURE_MODE: 'inspect', FIXTURE_MARKER: 'allowed' },
+    }));
+    assert.equal(result.status, 'success');
+    const data = JSON.parse(result.stdout);
+    assert.equal(data.marker, 'allowed');
+    assert.equal(data.ambient, undefined);
+  } finally {
+    delete process.env.ADAPTER_AMBIENT_FIXTURE;
+  }
+});
+
 test('structured output gives session, text, raw events and summed usage', async () => {
   const events = [];
   const result = await runAgent(fixture('codex', 'codex', { onEvent: event => events.push(event) }));

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0 — Unreleased
+
+- Add typed Codex sandbox and approval settings for fresh and resumed sessions.
+- Describe adapter permission capabilities and support an explicit child environment allowlist.
+
 ## 0.1.0 — 2026-10-29
 
 - Add typed subprocess adapters for Codex, Claude Code, Gemini CLI, Grok Build, Kimi Code, and Muse Code.

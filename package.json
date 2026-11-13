@@ -1,6 +1,6 @@
 {
   "name": "@bpstr/agent-adapter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Typed, dependency-free process adapters for coding agent CLIs",
   "type": "module",
   "main": "./dist/index.js",

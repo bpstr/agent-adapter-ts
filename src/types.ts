@@ -20,9 +20,14 @@ export interface Invocation {
   approvalFree: boolean;
 }
 
+export interface CodexPermissions {
+  sandbox: 'read-only' | 'workspace-write';
+  approval: 'never' | 'on-request';
+}
+
 export interface RunnerOptions extends InvocationOptions {
-  /** Inherit the CLI's permission policy by default. Bypass is an explicit opt-in. */
-  permissions?: 'default' | 'bypass';
+  /** Inherit the native policy, explicitly bypass it, or configure Codex. */
+  permissions?: 'default' | 'bypass' | CodexPermissions;
 }
 
 export interface RunnerInvocation extends Invocation {
@@ -55,6 +60,8 @@ export interface RunOptions extends RunnerOptions {
   maxEventBytes?: number;
   /** Overrides are merged with process.env. Pass undefined to remove a variable. */
   env?: NodeJS.ProcessEnv;
+  /** Set false to pass only the explicitly supplied env entries to the child. */
+  inheritEnvironment?: boolean;
   onEvent?: (event: AgentEvent) => void;
   onOutput?: (chunk: string, stream: 'stdout' | 'stderr') => void;
 }

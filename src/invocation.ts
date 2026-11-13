@@ -11,6 +11,15 @@ export const CLIENT_CAPABILITIES = {
   muse: { continuation: false, structuredOutput: false, model: true, effort: true },
 } as const;
 
+/** Describes the adapter boundary. OS containment needs separate native qualification. */
+export function runnerPermissionCapabilities(client: InvocationOptions['client']) {
+  return {
+    nativeInherit: 'advisory',
+    codexPolicy: client === 'codex' ? 'advisory' : 'unsupported',
+    childEnvironmentAllowlist: 'enforced',
+  } as const;
+}
+
 export function validateOptions(options: InvocationOptions): void {
   if (!CLIENT_NAMES.includes(options.client)) throw new Error(`Unsupported client: ${options.client}`);
   for (const field of ['prompt', 'workdir'] as const) {
@@ -29,7 +38,17 @@ export function buildRunnerInvocation(options: RunnerOptions): RunnerInvocation 
   validateOptions(options);
   const { client, prompt, model = '', effort = '', permissions = 'default' } = options;
   const workdir = resolve(options.workdir);
-  if (!['default', 'bypass'].includes(permissions)) throw new Error(`Invalid permissions: ${permissions}`);
+  const policy = typeof permissions === 'object' && permissions !== null ? permissions : undefined;
+  if (policy) {
+    if (client !== 'codex') throw new Error(`${client} does not support a Codex permission policy`);
+    if (Object.keys(policy).some(key => key !== 'sandbox' && key !== 'approval') ||
+        !['read-only', 'workspace-write'].includes(policy.sandbox) ||
+        !['never', 'on-request'].includes(policy.approval)) {
+      throw new Error('Unsupported Codex sandbox or approval policy');
+    }
+  } else if (permissions !== 'default' && permissions !== 'bypass') {
+    throw new Error('Invalid permissions');
+  }
   if (effort && !CLIENT_CAPABILITIES[client].effort) throw new Error(`${client} does not support an effort override`);
   const bypass = permissions === 'bypass';
   // Reuse the extracted continuation checks and established command construction.
@@ -41,6 +60,7 @@ export function buildRunnerInvocation(options: RunnerOptions): RunnerInvocation 
     case 'codex':
       args = legacy.args.slice(0, -1).filter(arg => arg !== '--dangerously-bypass-approvals-and-sandbox');
       if (bypass) args.splice(1, 0, '--dangerously-bypass-approvals-and-sandbox');
+      if (policy) args.splice(1, 0, '--sandbox', policy.sandbox, '-c', `approval_policy=${JSON.stringify(policy.approval)}`);
       // Model and config options must precede the resume subcommand.
       { const index = args.indexOf('resume'); const at = index < 0 ? args.length : index;
         const overrides = [...(model ? ['--model', model] : []), ...(effort ? ['-c', `model_reasoning_effort=${JSON.stringify(effort)}`] : [])];
@@ -75,5 +95,5 @@ export function buildRunnerInvocation(options: RunnerOptions): RunnerInvocation 
       args.push('--', prompt);
       break;
   }
-  return { command: legacy.command, args, cwd: workdir, output, approvalFree: bypass, ...(stdin === undefined ? {} : { stdin }) };
+  return { command: legacy.command, args, cwd: workdir, output, approvalFree: bypass || policy?.approval === 'never', ...(stdin === undefined ? {} : { stdin }) };
 }

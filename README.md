@@ -2,7 +2,7 @@
 
 Run Codex, Claude Code, Gemini CLI, Grok Build, Kimi Code, and Muse Code through one TypeScript API. The package builds CLI arguments, starts a subprocess, streams events, and handles cancellation. It has no runtime dependencies.
 
-Version **0.1.0**. Requires Node.js 20+ and separately installed, configured agent CLIs. ESM only. Prepared for publication as `@bpstr/agent-adapter`.
+Version **0.2.0**. Requires Node.js 20+ and separately installed, configured agent CLIs. ESM only. Prepared for publication as `@bpstr/agent-adapter`.
 
 ```sh
 # After publication:
@@ -38,7 +38,7 @@ Calling `runAgent` can consume your agent account's allowance. The package never
 | `kimi` | `--prompt` | Text | Yes | — | — |
 | `muse` | `exec` | Text | Yes | Yes | — |
 
-The matrix describes adapter support. Some CLIs offer additional output and session modes that v0.1.0 does not normalize. Unknown model IDs and effort values are passed to the CLI for validation. Unsupported adapter controls fail before launch.
+The matrix describes adapter support. Unknown model IDs and effort values are passed to the CLI for validation. Unsupported adapter controls fail before launch.
 
 `permissions` defaults to `'default'`, which inherits the CLI's configured policy. For unattended work in a trusted, appropriately isolated workspace, set `permissions: 'bypass'` explicitly. This disables approval gates and, for some CLIs, their sandbox. It does not guarantee that authentication, missing configuration, or tool questions can never block; use a timeout.
 
@@ -72,6 +72,8 @@ The retained tail of each output stream defaults to 1 MiB (`maxOutputBytes`); th
 Timeouts return code `124`; cancellation returns `130`; spawn failures return `127`. Other nonzero exits are preserved. Recognized provider error events produce a failed result even when the CLI exits zero. Invalid options reject before spawning. Cancellation signals the process group, then escalates after `terminationGraceMs` (default 1 second). Children that deliberately detach into a separate process group are outside this boundary. Windows uses `taskkill /T`; it has not been qualified locally. Use a native executable there, rather than a `.cmd` shim.
 
 Codex and Claude receive prompts over stdin. Other adapters use an argv value and can hit operating-system argument limits for very large prompts. Arguments are passed without a shell, including prompts beginning with `-`. `workdir` is resolved to an absolute path. Environment overrides merge with the parent process; set a value to `undefined` to remove it.
+
+Codex accepts a typed `permissions` object with `sandbox: 'read-only' | 'workspace-write'` and `approval: 'never' | 'on-request'`. The adapter passes both choices on fresh and resumed invocations. `runnerPermissionCapabilities(client)` reports the Codex policy and inherited native configuration as advisory pending native OS qualification. Other clients reject the typed Codex policy before spawn. Set `inheritEnvironment: false` and pass an explicit `env` to limit the child to those entries. The allowlist applies to the process environment. Files, OS identities and credential stores have their own access controls.
 
 For TypeScript consumers, install `@types/node` in your Node project. Public types include `ClientName`, `InvocationOptions`, `RunnerOptions`, `RunOptions`, `RunResult`, `AgentEvent`, and `Usage`.
 

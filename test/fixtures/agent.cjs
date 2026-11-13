@@ -20,7 +20,7 @@ if (mode === 'hang' || mode === 'tree') {
   let input = '';
   const finish = () => {
     if (mode === 'inspect') {
-      console.log(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), input, marker: process.env.FIXTURE_MARKER }));
+      console.log(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), input, marker: process.env.FIXTURE_MARKER, ambient: process.env.ADAPTER_AMBIENT_FIXTURE }));
     } else if (mode === 'flood') {
       process.stdout.write('é'.repeat(10000));
       process.stderr.write('x'.repeat(10000));
