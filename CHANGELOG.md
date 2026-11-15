@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 — Unreleased
+## 0.2.0 — 2026-11-15
 
 - Add OpenCode CLI and DeepSeek Harness adapters with JSONL output and explicit session resumption.
 - Add typed Codex sandbox and approval settings for fresh and resumed sessions.
