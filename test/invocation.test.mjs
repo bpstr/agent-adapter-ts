@@ -2,30 +2,66 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { CLIENT_NAMES, CLIENT_CAPABILITIES, buildRunnerInvocation, buildClientInvocation, runnerPermissionCapabilities } from '../dist/index.js';
+import { CLIENT_NAMES as ROADMAP_CLIENT_NAMES } from '../dist/roadmap-runner.js';
 
 const base = { prompt: 'Implement the actual request', workdir: '.', model: 'fixture-model' };
 
+test('the primary client list adds OpenCode and DeepSeek to the compatibility clients', () => {
+  assert.deepEqual(CLIENT_NAMES, [...ROADMAP_CLIENT_NAMES, 'opencode', 'deepseek']);
+  assert.deepEqual(Object.keys(CLIENT_CAPABILITIES), CLIENT_NAMES);
+});
+
 for (const client of CLIENT_NAMES) {
-  test(`${client}: current command uses safe defaults and supports explicit bypass and model`, () => {
-    const result = buildRunnerInvocation({ ...base, client });
+  test(`${client}: current command uses safe defaults and supports explicit bypass`, () => {
+    const options = { ...base, client, model: CLIENT_CAPABILITIES[client].model ? base.model : undefined };
+    const result = buildRunnerInvocation(options);
     assert.equal(result.cwd, resolve('.'));
-    assert.equal(result.command, client);
+    assert.equal(result.command, client === 'deepseek' ? 'dsh' : client);
     assert.equal(result.approvalFree, false);
-    assert.ok(result.args.includes('fixture-model'));
+    assert.equal(result.args.some(arg => arg === base.model || arg === `--model=${base.model}`), CLIENT_CAPABILITIES[client].model);
     assert.ok(!result.args.includes('--yolo'));
-    const bypass = buildRunnerInvocation({ ...base, client, permissions: 'bypass' });
+    const bypass = buildRunnerInvocation({ ...options, permissions: 'bypass' });
     assert.equal(bypass.approvalFree, true);
     if (client === 'kimi') assert.ok(bypass.args.includes('--auto'));
     if (client === 'grok') assert.ok(bypass.args.includes('bypassPermissions'));
-    assert.equal(CLIENT_CAPABILITIES[client].model, true);
   });
   test(`${client}: prompts with flags, Unicode, newlines and shell syntax stay data`, () => {
     const prompt = '--help\n$(touch should-not-exist) `echo nope` café';
-    const result = buildRunnerInvocation({ ...base, client, prompt });
-    if (client === 'codex' || client === 'claude') {
+    const result = buildRunnerInvocation({ ...base, client, prompt, model: undefined });
+    if (['codex', 'claude', 'opencode', 'deepseek'].includes(client)) {
       assert.equal(result.stdin, prompt);
       assert.ok(!result.args.some(arg => arg.includes(prompt)));
     } else assert.ok(result.args.some(arg => arg === prompt || arg.endsWith(`=${prompt}`)));
+  });
+}
+
+test('OpenCode runs standalone and resumes the explicit session using native auto approval', () => {
+  const options = { ...base, client: 'opencode', model: 'provider/model#variant' };
+  const fresh = buildRunnerInvocation(options);
+  assert.equal(fresh.output, 'opencode-json');
+  assert.deepEqual(fresh.args, ['--standalone', 'run', '--format', 'json', '--model=provider/model#variant']);
+  const resumed = buildRunnerInvocation({ ...options, persistSession: true, resumeSessionId: 'ses_123', permissions: 'bypass' });
+  assert.deepEqual(resumed.args, ['--standalone', 'run', '--format', 'json', '--auto', '--model=provider/model#variant', '--session=ses_123']);
+});
+
+test('DeepSeek uses the headless profile and passes session IDs verbatim', () => {
+  const options = { prompt: base.prompt, workdir: '.', client: 'deepseek' };
+  const fresh = buildRunnerInvocation(options);
+  assert.equal(fresh.output, 'deepseek-json');
+  assert.deepEqual(fresh.args, ['--profile', 'headless', '--json', '-']);
+  const resumed = buildRunnerInvocation({ ...options, persistSession: true, resumeSessionId: 'session with spaces', permissions: 'bypass', executable: '/custom/dsh' });
+  assert.equal(resumed.command, '/custom/dsh');
+  assert.deepEqual(resumed.args, ['--profile', 'headless', '--json', '--permission-mode', 'danger-full-access', '--approval-policy', 'never', '--session-id=session with spaces', '-']);
+  assert.throws(() => buildRunnerInvocation({ ...options, model: 'fixture-model' }), /model override/);
+});
+
+for (const client of ['opencode', 'deepseek']) {
+  test(`${client}: resumption requires persistence and a valid explicit ID`, () => {
+    const options = { prompt: base.prompt, workdir: '.', client };
+    assert.throws(() => buildRunnerInvocation({ ...options, resumeSessionId: 'session' }), /Resume requires/);
+    for (const resumeSessionId of ['', '\0', 123]) {
+      assert.throws(() => buildRunnerInvocation({ ...options, persistSession: true, resumeSessionId }), /Resume requires/);
+    }
   });
 }
 
@@ -45,7 +81,7 @@ test('unsupported controls and invalid inputs fail before spawning', () => {
   for (const bad of [{ client: 'unknown' }, { workdir: '' }, { prompt: '\0' }, { executable: '\0' }, { permissions: 'magic' }]) {
     assert.throws(() => buildRunnerInvocation({ ...base, client: 'codex', ...bad }));
   }
-  for (const client of ['gemini', 'kimi']) assert.throws(() => buildRunnerInvocation({ ...base, client, effort: 'high' }), /effort override/);
+  for (const client of ['gemini', 'kimi', 'opencode', 'deepseek']) assert.throws(() => buildRunnerInvocation({ ...base, client, effort: 'high' }), /effort override/);
   for (const client of ['codex', 'claude', 'grok', 'muse']) assert.ok(buildRunnerInvocation({ ...base, client, effort: 'high' }).args.includes(client === 'codex' ? 'model_reasoning_effort="high"' : 'high'));
 });
 
@@ -81,5 +117,6 @@ test('compatibility exports preserve the established six-client contract', () =>
     kimi: ['-p', 'PROMPT'],
     muse: ['exec', '--yolo', 'PROMPT'],
   };
-  for (const client of CLIENT_NAMES) assert.deepEqual(buildClientInvocation({ ...options, client }).args, expected[client]);
+  assert.deepEqual(ROADMAP_CLIENT_NAMES, Object.keys(expected));
+  for (const client of ROADMAP_CLIENT_NAMES) assert.deepEqual(buildClientInvocation({ ...options, client }).args, expected[client]);
 });

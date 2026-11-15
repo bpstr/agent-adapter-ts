@@ -23,7 +23,7 @@
   "homepage": "https://github.com/bpstr/agent-adapter-ts#readme",
   "bugs": { "url": "https://github.com/bpstr/agent-adapter-ts/issues" },
   "license": "MIT",
-  "keywords": ["agent", "cli", "codex", "claude-code", "gemini", "grok", "kimi", "muse", "typescript"],
+  "keywords": ["agent", "cli", "codex", "claude-code", "gemini", "grok", "kimi", "muse", "opencode", "deepseek", "typescript"],
   "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
   "devDependencies": { "@types/node": "22.19.15", "typescript": "5.9.3" }
 }

@@ -20,10 +20,17 @@ for (const client of CLIENT_NAMES) {
     assert.equal(data.cwd, base.workdir);
     assert.equal(data.marker, 'merged-env');
     assert.equal(result.stdout, captured);
-    if (client === 'codex' || client === 'claude') assert.equal(data.input, base.prompt);
+    if (['codex', 'claude', 'opencode', 'deepseek'].includes(client)) assert.equal(data.input, base.prompt);
     else assert.ok(data.args.some(arg => arg === base.prompt || arg.endsWith(`=${base.prompt}`)));
   });
 }
+
+test('OpenCode receives the requested workdir in PWD when it is present', async () => {
+  const env = { PATH: process.env.PATH, FIXTURE_MODE: 'inspect', PWD: tmpdir() };
+  const result = await runAgent(fixture('opencode', 'inspect', { inheritEnvironment: false, env }));
+  assert.equal(JSON.parse(result.stdout).pwd, base.workdir);
+  assert.equal(env.PWD, tmpdir());
+});
 
 test('explicit child environment excludes ambient values', async () => {
   process.env.ADAPTER_AMBIENT_FIXTURE = 'dummy';
@@ -49,6 +56,25 @@ test('structured output gives session, text, raw events and summed usage', async
   assert.deepEqual(result.usage, { inputTokens: 20, outputTokens: 5, cachedInputTokens: 3 });
   assert.ok(events.some(e => e.type === 'raw'));
 });
+
+for (const [client, sessionId] of [['opencode', 'ses_fixture'], ['deepseek', 'session-fixture']]) {
+  test(`${client}: structured output reports the answer, session and step usage`, async () => {
+    const events = [];
+    const result = await runAgent(fixture(client, client, { onEvent: event => events.push(event) }));
+    assert.equal(result.status, 'success');
+    assert.equal(result.text, 'Prepared answer ✓');
+    assert.equal(result.providerThreadId, sessionId);
+    assert.deepEqual(events.filter(event => event.type === 'session'), [{ type: 'session', sessionId }]);
+    assert.deepEqual(result.usage, { inputTokens: 20, outputTokens: 5, cachedInputTokens: 3 });
+    assert.ok(events.some(event => event.type === 'raw'));
+  });
+
+  test(`${client}: a structured failure overrides exit zero`, async () => {
+    const result = await runAgent(fixture(client, `${client}-provider-error`));
+    assert.equal(result.status, 'failed');
+    assert.equal(result.error, 'Prepared failure');
+  });
+}
 
 test('provider failures override zero exit and nonzero exits preserve stderr', async () => {
   const provider = await runAgent(fixture('claude', 'claude-error'));

@@ -1,6 +1,7 @@
-export const CLIENT_NAMES = ['codex', 'claude', 'gemini', 'grok', 'kimi', 'muse'] as const;
+export const ROADMAP_CLIENT_NAMES = ['codex', 'claude', 'gemini', 'grok', 'kimi', 'muse'] as const;
+export const CLIENT_NAMES = [...ROADMAP_CLIENT_NAMES, 'opencode', 'deepseek'] as const;
 export type ClientName = typeof CLIENT_NAMES[number];
-export type OutputFormat = 'codex-json' | 'claude-json' | 'gemini-json' | 'text';
+export type OutputFormat = 'codex-json' | 'claude-json' | 'gemini-json' | 'opencode-json' | 'deepseek-json' | 'text';
 
 export interface InvocationOptions {
   client: ClientName;
@@ -32,7 +33,7 @@ export interface RunnerOptions extends InvocationOptions {
 
 export interface RunnerInvocation extends Invocation {
   cwd: string;
-  /** Codex and Claude prompts use stdin to avoid argv length limits. */
+  /** Prompt supplied through stdin for clients that support it. */
   stdin?: string;
 }
 

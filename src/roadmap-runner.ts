@@ -1,6 +1,6 @@
 // Extracted from @bpstr/roadmap-runner (MIT, copyright 2026 Fent Jani).
 import type { Invocation, InvocationOptions } from './types.js';
-export { CLIENT_NAMES } from './types.js';
+export { ROADMAP_CLIENT_NAMES as CLIENT_NAMES } from './types.js';
 
 function validProviderThreadId(value: unknown): value is string {
   return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value);

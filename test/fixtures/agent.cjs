@@ -20,7 +20,7 @@ if (mode === 'hang' || mode === 'tree') {
   let input = '';
   const finish = () => {
     if (mode === 'inspect') {
-      console.log(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), input, marker: process.env.FIXTURE_MARKER, ambient: process.env.ADAPTER_AMBIENT_FIXTURE }));
+      console.log(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), pwd: process.env.PWD, input, marker: process.env.FIXTURE_MARKER, ambient: process.env.ADAPTER_AMBIENT_FIXTURE }));
     } else if (mode === 'flood') {
       process.stdout.write('é'.repeat(10000));
       process.stderr.write('x'.repeat(10000));
@@ -33,6 +33,26 @@ if (mode === 'hang' || mode === 'tree') {
       console.log(JSON.stringify({ type: 'result', is_error: true, result: 'Prepared quota exhaustion' }));
     } else if (mode === 'gemini') {
       console.log(JSON.stringify({ type: 'message', role: 'assistant', content: 'Prepared Gemini answer' }));
+    } else if (mode === 'opencode' || mode === 'deepseek' || mode?.endsWith('-provider-error')) {
+      const events = {
+        opencode: [
+          { type: 'step_start', sessionID: 'ses_fixture' },
+          { type: 'text', sessionID: 'ses_fixture', part: { text: 'Prepared ' } },
+          { type: 'text', sessionID: 'ses_fixture', part: { text: 'answer ✓' } },
+          { type: 'step_finish', sessionID: 'ses_fixture', part: { tokens: { input: 12, output: 3, cache: { read: 2 } } } },
+          { type: 'step_finish', sessionID: 'ses_fixture', part: { tokens: { input: 8, output: 2, cache: { read: 1 } } } },
+        ],
+        deepseek: [
+          { type: 'session', sessionId: 'session-fixture' },
+          { type: 'text', text: 'Intermediate answer' },
+          { type: 'status', phase: 'step_end', usage: { inputTokens: 12, outputTokens: 3, cacheReadTokens: 2 } },
+          { type: 'status', phase: 'step_end', usage: { inputTokens: 8, outputTokens: 2, cacheReadTokens: 1 } },
+          { type: 'final', sessionId: 'session-fixture', reason: { kind: 'completed' }, text: 'Prepared answer ✓' },
+        ],
+        'opencode-provider-error': [{ type: 'error', sessionID: '', error: { type: 'unknown', message: 'Prepared failure' } }],
+        'deepseek-provider-error': [{ type: 'final', sessionId: 'session-fixture', reason: { kind: 'error', error: { message: 'Prepared failure' } }, text: '' }],
+      };
+      for (const event of events[mode]) console.log(JSON.stringify(event));
     } else if (mode === 'exit') {
       process.stderr.write('Prepared authentication failure');
       process.exitCode = 42;

@@ -1,6 +1,6 @@
 # Agent Adapter
 
-Run Codex, Claude Code, Gemini CLI, Grok Build, Kimi Code, and Muse Code through one TypeScript API. The package builds CLI arguments, starts a subprocess, streams events, and handles cancellation. It has no runtime dependencies.
+Run Codex, Claude Code, Gemini CLI, Grok Build, Kimi Code, Muse Code, OpenCode CLI, and DeepSeek Harness through one TypeScript API. The package builds CLI arguments, starts a subprocess, streams events, and handles cancellation. It has no runtime dependencies.
 
 Version **0.2.0**. Requires Node.js 20+ and separately installed, configured agent CLIs. ESM only. Prepared for publication as `@bpstr/agent-adapter`.
 
@@ -37,10 +37,16 @@ Calling `runAgent` can consume your agent account's allowance. The package never
 | `grok` | `--single` | Text | Yes | Yes | — |
 | `kimi` | `--prompt` | Text | Yes | — | — |
 | `muse` | `exec` | Text | Yes | Yes | — |
+| `opencode` | `opencode --standalone run` | JSONL | `provider/model#variant` | — | Explicit session ID |
+| `deepseek` | `dsh --profile headless` | JSONL | Profile configuration | — | Explicit session ID |
 
 The matrix describes adapter support. Unknown model IDs and effort values are passed to the CLI for validation. Unsupported adapter controls fail before launch.
 
+The OpenCode adapter targets the [OpenCode v2.3 CLI](https://github.com/anomalyco/opencode/tree/v2.3.0/packages/cli). The DeepSeek adapter targets the [DeepSeek Harness v0.2.2-rc.3 headless profile](https://github.com/deepseek-ai/deepseek-harness/tree/dsh-v0.2.2-rc.3/packages/bundle/headless), distributed as `@deepseek-ai/dsh`. It requires Node.js 24.9+ for `dsh` and uses the headless profile's configured model.
+
 `permissions` defaults to `'default'`, which inherits the CLI's configured policy. For unattended work in a trusted, appropriately isolated workspace, set `permissions: 'bypass'` explicitly. This disables approval gates and, for some CLIs, their sandbox. It does not guarantee that authentication, missing configuration, or tool questions can never block; use a timeout.
+
+OpenCode bypass uses `--auto` and honors explicit denials. DeepSeek bypass selects `danger-full-access` with approval policy `never`.
 
 ```ts
 import { buildRunnerInvocation, runAgent } from '@bpstr/agent-adapter';
@@ -61,9 +67,9 @@ const result = await runAgent({
 });
 ```
 
-Codex sessions are ephemeral by default. Resumption requires `persistSession: true` and an explicit provider ID from an earlier result's `providerThreadId`; the adapter never chooses `--last`. Other adapters reject continuation requests. Their CLIs may still persist their own normal session files.
+Codex, OpenCode, and DeepSeek support resumption with `persistSession: true` and an explicit provider ID from an earlier result's `providerThreadId`. Codex uses ephemeral sessions by default. OpenCode and DeepSeek manage their own session storage. OpenCode can create a session when the supplied ID is missing from its store, while DeepSeek rejects unknown IDs.
 
-Results include `status`, `code`, termination `signal`, raw `stdout` and `stderr`, extracted assistant `text`, `truncated` flags, provider-reported session ID, and usage when recognized. Missing usage stays `null`; prepared test usage is never evidence of real provider consumption. Codex usage is summed across turns; Claude and Gemini terminal receipts replace previous aggregate receipts.
+Results include `status`, `code`, termination `signal`, raw `stdout` and `stderr`, extracted assistant `text`, `truncated` flags, provider-reported session ID, and usage when recognized. Missing usage stays `null`. Codex usage is summed across turns. OpenCode and DeepSeek usage is summed across reported steps. Claude and Gemini terminal receipts replace previous aggregate receipts. DeepSeek emits its complete answer as a `text` event when the final record arrives, with intermediate records available as `raw` events.
 
 `onEvent` receives `text`, `session`, `usage`, `error`, `diagnostic`, and `raw` events. `onOutput(chunk, stream)` receives raw decoded output. Raw events and output may contain prompts, paths, tool arguments, and other private data; choose what to persist. No output is written to the console by the library.
 
@@ -71,7 +77,7 @@ The retained tail of each output stream defaults to 1 MiB (`maxOutputBytes`); th
 
 Timeouts return code `124`; cancellation returns `130`; spawn failures return `127`. Other nonzero exits are preserved. Recognized provider error events produce a failed result even when the CLI exits zero. Invalid options reject before spawning. Cancellation signals the process group, then escalates after `terminationGraceMs` (default 1 second). Children that deliberately detach into a separate process group are outside this boundary. Windows uses `taskkill /T`; it has not been qualified locally. Use a native executable there, rather than a `.cmd` shim.
 
-Codex and Claude receive prompts over stdin. Other adapters use an argv value and can hit operating-system argument limits for very large prompts. Arguments are passed without a shell, including prompts beginning with `-`. `workdir` is resolved to an absolute path. Environment overrides merge with the parent process; set a value to `undefined` to remove it.
+Codex, Claude, OpenCode, and DeepSeek receive prompts over stdin. Other adapters use an argv value and can hit operating-system argument limits for very large prompts. Arguments are passed without a shell, including prompts beginning with `-`. `workdir` is resolved to an absolute path. Environment overrides merge with the parent process. Set a value to `undefined` to remove it. OpenCode reads `PWD` when present, so `runAgent` sets that entry to the resolved workdir. When spawning a standalone `buildRunnerInvocation` yourself, align `PWD` with `invocation.cwd` or omit it.
 
 Codex accepts a typed `permissions` object with `sandbox: 'read-only' | 'workspace-write'` and `approval: 'never' | 'on-request'`. The adapter passes both choices on fresh and resumed invocations. `runnerPermissionCapabilities(client)` reports the Codex policy and inherited native configuration as advisory pending native OS qualification. Other clients reject the typed Codex policy before spawn. Set `inheritEnvironment: false` and pass an explicit `env` to limit the child to those entries. The allowlist applies to the process environment. Files, OS identities and credential stores have their own access controls.
 
@@ -91,7 +97,7 @@ export {
 
 This entry point preserves Roadmap Runner 0.12.4's argument arrays, return shape (`command`, `args`, `output`, `approvalFree`), Codex continuation checks, and existing unattended defaults. It deliberately retains the legacy Grok `--yolo` and Kimi approval behavior. Use `buildRunnerInvocation` for current Grok flags and explicit Kimi unattended mode. See [the migration guide](docs/roadmap-runner.md) for that second step and the responsibilities that remain in Roadmap Runner.
 
-The root export also exposes `buildClientInvocation` for existing callers; its legacy defaults differ from `buildRunnerInvocation`.
+The root export also exposes the legacy six-client `buildClientInvocation`. Use `buildRunnerInvocation` or `runAgent` for OpenCode and DeepSeek.
 
 ## Development and verification
 

@@ -13,6 +13,13 @@ export function createOutputParser(format: OutputFormat, emit: (event: AgentEven
   let dropping = false;
   let ended = false;
   let sawText = false;
+  let sessionId: string | undefined;
+  const session = (value: unknown) => {
+    if (typeof value === 'string' && value && value !== sessionId) {
+      sessionId = value;
+      emit({ type: 'session', sessionId });
+    }
+  };
   const text = (value: unknown) => {
     if (typeof value === 'string' && value) { sawText = true; emit({ type: 'text', text: value }); }
   };
@@ -65,6 +72,28 @@ export function createOutputParser(format: OutputFormat, emit: (event: AgentEven
         const stats = object(event.stats);
         usage({ input_tokens: stats.input_tokens, output_tokens: stats.output_tokens, cached_input_tokens: stats.cached }, true);
       }
+    } else if (format === 'opencode-json') {
+      session(event.sessionID);
+      const part = object(event.part);
+      if (event.type === 'text') text(part.text);
+      if (event.type === 'step_finish') {
+        const tokens = object(part.tokens);
+        usage({ input_tokens: tokens.input, output_tokens: tokens.output, cached_input_tokens: object(tokens.cache).read }, false);
+      }
+      if (event.type === 'error') failure(event.error ?? event.message);
+    } else if (format === 'deepseek-json') {
+      if (event.type === 'session' || event.type === 'final') session(event.sessionId);
+      if (event.type === 'status' && event.phase === 'step_end') {
+        const tokens = object(event.usage);
+        usage({ input_tokens: tokens.inputTokens, output_tokens: tokens.outputTokens, cached_input_tokens: tokens.cacheReadTokens }, false);
+      }
+      if (event.type === 'final') {
+        // The final event contains the complete answer. Earlier text events are per-step and may be truncated.
+        text(event.text);
+        const reason = object(event.reason);
+        if (reason.kind === 'error') failure(reason.error);
+      }
+      if (event.type === 'error') failure(event.message);
     }
   };
   const decode = (chunk: string) => {

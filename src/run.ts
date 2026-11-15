@@ -36,7 +36,9 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
   if (options.inheritEnvironment !== undefined && typeof options.inheritEnvironment !== 'boolean') {
     throw new Error('inheritEnvironment must be a boolean');
   }
-  const env = options.inheritEnvironment === false ? (options.env ?? {}) : { ...process.env, ...options.env };
+  const env = options.inheritEnvironment === false ? { ...options.env } : { ...process.env, ...options.env };
+  // OpenCode v2 resolves its workspace from PWD before falling back to process.cwd().
+  if (options.client === 'opencode' && env.PWD !== undefined) env.PWD = invocation.cwd;
   const { timeoutMs, terminationGraceMs = 1000, maxOutputBytes = 1_048_576, maxEventBytes = 1_048_576 } = options;
   for (const [name, value] of Object.entries({ timeoutMs, terminationGraceMs, maxOutputBytes, maxEventBytes })) {
     if (value !== undefined && (!Number.isSafeInteger(value) || value < (name === 'terminationGraceMs' ? 0 : 1))) throw new Error(`${name} must be a ${name === 'terminationGraceMs' ? 'nonnegative' : 'positive'} safe integer`);

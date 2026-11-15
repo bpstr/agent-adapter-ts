@@ -2,6 +2,7 @@
 
 ## 0.2.0 — Unreleased
 
+- Add OpenCode CLI and DeepSeek Harness adapters with JSONL output and explicit session resumption.
 - Add typed Codex sandbox and approval settings for fresh and resumed sessions.
 - Describe adapter permission capabilities and support an explicit child environment allowlist.
 

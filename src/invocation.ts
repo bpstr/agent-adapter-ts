@@ -9,6 +9,8 @@ export const CLIENT_CAPABILITIES = {
   grok: { continuation: false, structuredOutput: false, model: true, effort: true },
   kimi: { continuation: false, structuredOutput: false, model: true, effort: false },
   muse: { continuation: false, structuredOutput: false, model: true, effort: true },
+  opencode: { continuation: true, structuredOutput: true, model: true, effort: false },
+  deepseek: { continuation: true, structuredOutput: true, model: false, effort: false },
 } as const;
 
 /** Describes the adapter boundary. OS containment needs separate native qualification. */
@@ -50,7 +52,27 @@ export function buildRunnerInvocation(options: RunnerOptions): RunnerInvocation 
     throw new Error('Invalid permissions');
   }
   if (effort && !CLIENT_CAPABILITIES[client].effort) throw new Error(`${client} does not support an effort override`);
+  if (model && !CLIENT_CAPABILITIES[client].model) throw new Error(`${client} does not support a model override`);
   const bypass = permissions === 'bypass';
+  if (client === 'opencode' || client === 'deepseek') {
+    const { resumeSessionId, persistSession } = options;
+    if (resumeSessionId != null && (!persistSession || typeof resumeSessionId !== 'string' ||
+        !resumeSessionId.length || resumeSessionId.includes('\0'))) {
+      throw new Error('Resume requires an explicit valid provider thread ID and session persistence');
+    }
+    if (client === 'opencode') {
+      const args = ['--standalone', 'run', '--format', 'json'];
+      if (bypass) args.push('--auto');
+      if (model) args.push(`--model=${model}`);
+      if (resumeSessionId) args.push(`--session=${resumeSessionId}`);
+      return { command: options.executable || 'opencode', args, cwd: workdir, output: 'opencode-json', approvalFree: bypass, stdin: prompt };
+    }
+    const args = ['--profile', 'headless', '--json'];
+    if (bypass) args.push('--permission-mode', 'danger-full-access', '--approval-policy', 'never');
+    if (resumeSessionId) args.push(`--session-id=${resumeSessionId}`);
+    args.push('-');
+    return { command: options.executable || 'dsh', args, cwd: workdir, output: 'deepseek-json', approvalFree: bypass, stdin: prompt };
+  }
   // Reuse the extracted continuation checks and established command construction.
   const legacy = buildClientInvocation({ ...options, workdir, model: '', effort: '' });
   let args: string[];

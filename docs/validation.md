@@ -45,3 +45,13 @@ Prepared fixtures cover all six prompt transports, model/effort construction, ex
 - Grok, Kimi, and Muse output is passed through as text. Their richer JSON modes are outside v0.1.0 normalization.
 - No live-content dogfood was authorized with an exact scope and hard request/spend cap. Automated provider tests remain forbidden; meaningful manual dogfood would be a separate authorization and workflow.
 - npm publication is a later action. This release prepares metadata, declarations, tarball contents, and a manual publish command; it does not publish the npm package.
+
+## OpenCode and DeepSeek adapters in 0.2.0
+
+On 2026-11-15, macOS with Node.js 24.19.0 verified discovery, invocation arguments, stdin and workdir handling, JSONL normalization, explicit resumption options, and the six-client compatibility export. The shared client list affects the invocation and process suites, so `npm test` ran once and passed 52 tests. A focused `node --test --test-name-pattern='primary client list' test/invocation.test.mjs` run passed the added export assertion. The other 52 results were reused. The full fixture run took about two seconds. Validation also included authoring the fixture cases, inspecting the versioned contracts, and recording the results.
+
+- `node scripts/check-package.mjs` passed the packed ESM and TypeScript checks for both entry points. The tarball contained 21 files.
+- `scripts/check-roadmap.mjs` passed all 19 compatibility tests against a disposable copy of Roadmap Runner 0.12.4 at `22979d9`. Evidence is in `.evidence/adapter-additions-roadmap.log`.
+- `node scripts/check-installed.mjs` passed 14 help checks across the seven installed clients, including OpenCode v2.3.0 with default and explicit bypass flags. `dsh` was absent. Flags and payloads were verified against the tagged [OpenCode renderer](https://github.com/anomalyco/opencode/blob/v2.3.0/packages/cli/src/run/noninteractive.ts) and [DeepSeek headless documentation](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.2-rc.3/packages/bundle/headless/README.md). Evidence is in `.evidence/adapter-additions-installed/`.
+
+These checks issued zero inference requests. Authentication, live resumption, native permissions and provider response fidelity require separate verification. The hosted OS and Node matrix remains a release gate.
